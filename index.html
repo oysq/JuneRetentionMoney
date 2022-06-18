@@ -1,0 +1,27 @@
+﻿<!DOCTYPE html>
+<html lang="ch">
+<head>
+<meta charset="UTF-8">
+<title>应收账款-账龄划分</title>
+
+<!-- 图标 -->
+<link rel="shortcut icon" href="img/touch.png" />
+
+<!-- 引入css -->
+<link rel="stylesheet" href="css/index.css"/>
+
+</head>
+<body>
+<div id="app" :style="{'width':'100%'}">
+
+	<input type="file" accept=".xls, .xlsx" @change="readExcel" ref='glb_file' />
+
+
+</div>
+
+<script src="js/vue/vue.js" type="text/javascript" charset="utf-8"></script>
+<script src="js/jsxlsx/xlsx.full.min.js"></script>
+<script src="js/retention/index.js" type="text/javascript" charset="utf-8"></script>
+
+</body>
+</html>

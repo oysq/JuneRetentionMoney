@@ -61,13 +61,14 @@ new Vue({
 				.map(row => {
 					const needRange = row.source.needRange;
 					return {
-						id: row.status.id,
-						n0: {num: needRange[0], selectStatus: false},
-						n1: {num: needRange[1], selectStatus: false},
-						n2: {num: needRange[2], selectStatus: false},
-						n3: {num: needRange[3], selectStatus: false},
-						n4: {num: needRange[4], selectStatus: false},
-						n5: {num: needRange[5], selectStatus: false},
+						id: {data: row.status.id, canSelected: false},
+						name: {data: row.source.name, canSelected: false},
+						n0: {data: needRange[0], canSelected: true, selectStatus: false},
+						n1: {data: needRange[1], canSelected: true, selectStatus: false},
+						n2: {data: needRange[2], canSelected: true, selectStatus: false},
+						n3: {data: needRange[3], canSelected: true, selectStatus: false},
+						n4: {data: needRange[4], canSelected: true, selectStatus: false},
+						n5: {data: needRange[5], canSelected: true, selectStatus: false},
 					}
 				})
 			console.log(this.priorityArrData)
@@ -140,19 +141,20 @@ new Vue({
 		// 单元格点击事件
 		selectCell(row, column, cell, event) {
 			this.priorityArrData = this.priorityArrData.map(item => {
-				if(item.id === row.id) {
-					const _status = item[column.property.split('.')[0]].selectStatus
-					item[column.property.split('.')[0]].selectStatus = !_status
-					return item
+				if(item.id.data === row.id.data) {
+					const key = column.property.split('.')[0]
+					if(item[key].canSelected) {
+						item[key].selectStatus = !item[key].selectStatus
+						return item
+					}
 				}
 				return item
 			})
 		},
 		// 匹配单元格样式
 		cellStyle(data) {
-			console.log(data)
-			console.log(data.row['n' + data.columnIndex].selectStatus)
-			if(data.row['n' + data.columnIndex].selectStatus) {
+			const key = data.column.property.split('.')[0]
+			if(data.row[key].canSelected && data.row[key].selectStatus) {
 				return 'color: black; background-color: #e8c387; font-size: 17px;'
 			}
 			return ''

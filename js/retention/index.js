@@ -56,21 +56,7 @@ new Vue({
 			})
 
 			// 渲染到页面
-			this.priorityArrData = this.jsonArrData
-				.filter(row => row.status.hasPriority)
-				.map(row => {
-					const needRange = row.source.needRange;
-					return {
-						id: {data: row.status.id, canSelected: false},
-						name: {data: row.source.name, canSelected: false},
-						n0: {data: needRange[0], canSelected: true, selectStatus: false},
-						n1: {data: needRange[1], canSelected: true, selectStatus: false},
-						n2: {data: needRange[2], canSelected: true, selectStatus: false},
-						n3: {data: needRange[3], canSelected: true, selectStatus: false},
-						n4: {data: needRange[4], canSelected: true, selectStatus: false},
-						n5: {data: needRange[5], canSelected: true, selectStatus: false},
-					}
-				})
+			this.priorityArrData = this.getPriorityFormatData(this.jsonArrData)
 			console.log(this.priorityArrData)
 
 			// this.tableData.forEach(data => this.handleData(data))
@@ -87,6 +73,7 @@ new Vue({
 					_list.push(rowData[i])
 				}
 			}
+
 			// 转换格式
 			return {
 				source: {
@@ -137,6 +124,27 @@ new Vue({
 			}
 			// 只有同时存在正负数才有优先级的可能
 			return false;
+		},
+
+		/*  -- 表格相关 --  */
+
+		// 获取表格展示内容的格式
+		getPriorityFormatData(data) {
+			return data
+				.filter(row => row.status.hasPriority)
+				.map(row => {
+					const needRange = row.source.needRange;
+					return {
+						id: {data: row.status.id, canSelected: false},
+						name: {data: row.source.name, canSelected: false},
+						n0: {data: needRange[0], canSelected: true, selectStatus: false},
+						n1: {data: needRange[1], canSelected: true, selectStatus: false},
+						n2: {data: needRange[2], canSelected: true, selectStatus: false},
+						n3: {data: needRange[3], canSelected: true, selectStatus: false},
+						n4: {data: needRange[4], canSelected: true, selectStatus: false},
+						n5: {data: needRange[5], canSelected: true, selectStatus: false},
+					}
+				})
 		},
 		// 单元格点击事件
 		selectCell(row, column, cell, event) {

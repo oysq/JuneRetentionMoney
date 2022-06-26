@@ -76,5 +76,17 @@ function permutation(arr, num) {
     return resArr;
 }
 
-
+/**
+ * 数组求和
+ */
+function arrSum(list) {
+    if(isEmpty(list)) {
+        return 0
+    }
+    let sum = 0
+    list.forEach(item => {
+        sum += item
+    })
+    return sum
+}
 

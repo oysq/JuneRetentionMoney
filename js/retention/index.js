@@ -56,11 +56,8 @@ new Vue({
 			})
 
 			// 渲染到页面
-			this.priorityArrData = this.getPriorityFormatData(this.jsonArrData)
-			console.log(this.priorityArrData)
+			this.priorityArrData = this.getPriorityFormatData()
 
-			// this.tableData.forEach(data => this.handleData(data))
-			// this.handleData(this.tableData[2])
 		},
 		// 预处理
 		handleBefore(rowData) {
@@ -92,6 +89,9 @@ new Vue({
 				}
 			}
 		},
+
+		/** ----- 表格相关 ----- **/
+
 		// 判断是否存在优先级
 		hasPriority(rowData) {
 			const zList = []
@@ -125,51 +125,199 @@ new Vue({
 			// 只有同时存在正负数才有优先级的可能
 			return false;
 		},
-
-		/*  -- 表格相关 --  */
-
 		// 获取表格展示内容的格式
-		getPriorityFormatData(data) {
-			return data
+		getPriorityFormatData() {
+			return this.jsonArrData
 				.filter(row => row.status.hasPriority)
-				.map(row => {
-					const needRange = row.source.needRange;
-					return {
-						id: {data: row.status.id, canSelected: false},
-						name: {data: row.source.name, canSelected: false},
-						n0: {data: needRange[0], canSelected: true, selectStatus: false},
-						n1: {data: needRange[1], canSelected: true, selectStatus: false},
-						n2: {data: needRange[2], canSelected: true, selectStatus: false},
-						n3: {data: needRange[3], canSelected: true, selectStatus: false},
-						n4: {data: needRange[4], canSelected: true, selectStatus: false},
-						n5: {data: needRange[5], canSelected: true, selectStatus: false},
-					}
-				})
+				.map(row => this.changeToPriorityFormatData(row))
+		},
+		// 转换一行格式
+		changeToPriorityFormatData(row) {
+			const needRange = row.source.needRange;
+			return {
+				id: {data: row.status.id, canSelected: false},
+				name: {data: row.source.name, canSelected: false},
+				n0: {data: needRange[0], canSelected: true, selectStatus: false},
+				n1: {data: needRange[1], canSelected: true, selectStatus: false},
+				n2: {data: needRange[2], canSelected: true, selectStatus: false},
+				n3: {data: needRange[3], canSelected: true, selectStatus: false},
+				n4: {data: needRange[4], canSelected: true, selectStatus: false},
+				n5: {data: needRange[5], canSelected: true, selectStatus: false},
+			}
 		},
 		// 单元格点击事件
 		selectCell(row, column, cell, event) {
+			if(column.property) {
+				this.priorityArrData = this.priorityArrData.map(item => {
+					if (item.id.data === row.id.data) {
+						const key = column.property.split('.')[0]
+						if (item[key].canSelected) {
+							item[key].selectStatus = !item[key].selectStatus
+							return item
+						}
+					}
+					return item
+				})
+			}
+		},
+		// 匹配单元格样式
+		cellStyle(data) {
+			if(data.column.property) {
+				const key = data.column.property.split('.')[0]
+				if(data.row[key].canSelected && data.row[key].selectStatus) {
+					return 'color: black; background-color: #e8c387; font-size: 17px;'
+				}
+			}
+			return ''
+		},
+		// 抵扣一行数据
+		submit(row) {
+
+			// console.log(row)
+			// console.log(this.jsonArrData)
+			// console.log(this.priorityArrData)
+
 			this.priorityArrData = this.priorityArrData.map(item => {
-				if(item.id.data === row.id.data) {
-					const key = column.property.split('.')[0]
-					if(item[key].canSelected) {
-						item[key].selectStatus = !item[key].selectStatus
-						return item
+				if (item.id.data === row.id.data) {
+					// 找到要抵扣的数据并记录位置
+					const indexList = []
+					const list = []
+					Object.keys(row).forEach(tmp => {
+						if(row[tmp].selectStatus) {
+							indexList.push(tmp)
+							list.push(row[tmp].data)
+						}
+					})
+					// 抵扣一行
+					const res = this.deduction(list)
+
+					// 替换原数据
+					for (let i = 0; i < indexList.length; i++) {
+						item[indexList[i]].data = res[i]
 					}
 				}
 				return item
 			})
+
+
 		},
-		// 匹配单元格样式
-		cellStyle(data) {
-			const key = data.column.property.split('.')[0]
-			if(data.row[key].canSelected && data.row[key].selectStatus) {
-				return 'color: black; background-color: #e8c387; font-size: 17px;'
+		// 抵扣
+		deduction(list) {
+			// 是否跳过
+			if(isEmpty(list)) {
+				// console.log("略过一行空数据")
+				return list
 			}
-			return ''
+
+			// 到负数就停（第一个不处理，所以是减2）
+			for(let i = (list.length-2) ; i >= 0 ; i--) {
+				if(list[i] < 0) {
+
+					// 找出正数并记录位置
+					const indexList = []
+					const targetList = []
+					for (let j = i+1; j < list.length; j++) {
+						if(list[j] > 0) {
+							indexList.push(j)
+							targetList.push(list[j])
+						}
+					}
+
+					// 执行一轮抵扣
+					const res = this.deduction_per(list[i], targetList)
+
+					// 替换原始数据
+					list[i] = res.num
+					for (let j = 0; j < indexList.length; j++) {
+						list[indexList[j]] = res.list[j]
+					}
+					// console.log('替换后：', list)
+				}
+			}
+			return list;
+
 		},
+		// 抵扣 - 某一行的某一次替换
+		deduction_per(num, list) {
 
+			// console.log('==> 开始一次替换')
+			// console.log('num', num)
+			// console.log('list', list)
 
+			// 备份一个，后面补回要比较
+			const back_list = list.concat()
 
+			// 正数方便比较
+			const _num = -num
+
+			// 是否有符合条件的
+			if(!isEmpty(list)) {
+
+				// 先全部替换成0
+				let actualNum = 0;
+				list = list.map(_tmp => {
+					actualNum = actualNum += _tmp
+					return 0
+				})
+
+				// 多退少补
+				if(_num === actualNum) {
+					num = 0
+				} else if (_num > actualNum) {
+					num = actualNum - _num
+				} else if (_num < actualNum) {
+					num = 0
+					// 还剩多少没还的钱
+					let leftNum = actualNum - _num
+					// 从索引开始，逐个补回
+					for (let i = 0 ; i < list.length ; i++) {
+						const _back = back_list[i];
+						if(_back >= leftNum) {
+							list[i] = leftNum
+							break
+						} else {
+							list[i] = _back
+							leftNum = leftNum - _back
+						}
+					}
+				}
+			}
+
+			// console.log('==> 结束一次替换', {num: num, list: list})
+
+			// 返回结果
+			return {
+				num: num,
+				list: list
+			}
+
+		},
+		// 清除点击样式
+		cleanClick(row) {
+			this.priorityArrData = this.priorityArrData.map(item => {
+				if (item.id.data === row.id.data) {
+					// 抹去点击样式
+					Object.keys(row).forEach(tmp => {
+						if(row[tmp].selectStatus) {
+							row[tmp].selectStatus = false
+						}
+					})
+				}
+				return item
+			})
+		},
+		// 还原一行数据
+		returnBack(row) {
+			this.priorityArrData = this.priorityArrData.map(item => {
+				if (item.id.data === row.id.data) {
+					// 找到原始数据并替换
+					return this.jsonArrData
+						.filter(_row => _row.status.id === item.id.data)
+						.map(_row => this.changeToPriorityFormatData(_row))[0]
+				}
+				return item
+			})
+		},
 
 
 		// 处理一行数据

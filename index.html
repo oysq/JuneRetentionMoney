@@ -71,11 +71,22 @@
 							label="5年以上">
 					</el-table-column>
 
+					<el-table-column
+							fixed="right"
+							label="操作"
+							width="130">
+						<template slot-scope="scope">
+							<el-button @click="submit(scope.row)" type="text" size="small">抵扣</el-button>
+							<el-button @click="cleanClick(scope.row)" type="text" size="small">清除</el-button>
+							<el-button @click="returnBack(scope.row)" type="text" size="small">还原</el-button>
+						</template>
+					</el-table-column>
+
 				</el-table>
 			</div>
 
 			<div style="width: 70%;margin-top: 10px;">
-				<el-button round size="mini" type="success" style="float: right;">确认提交</el-button>
+				<el-button round size="mini" type="success" @click="submit" style="float: right;">确认提交</el-button>
 			</div>
 
 		</el-tab-pane>

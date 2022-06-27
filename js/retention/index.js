@@ -137,12 +137,14 @@ new Vue({
 			return {
 				id: {data: row.status.id, canSelected: false},
 				name: {data: row.source.name, canSelected: false},
+				needTotal: {data: row.source.needTotal, canSelected: false},
 				n0: {data: needRange[0], canSelected: true, selectStatus: false},
 				n1: {data: needRange[1], canSelected: true, selectStatus: false},
 				n2: {data: needRange[2], canSelected: true, selectStatus: false},
 				n3: {data: needRange[3], canSelected: true, selectStatus: false},
 				n4: {data: needRange[4], canSelected: true, selectStatus: false},
 				n5: {data: needRange[5], canSelected: true, selectStatus: false},
+				received: {data: row.source.received, canSelected: false},
 			}
 		},
 		// 单元格点击事件
@@ -162,19 +164,21 @@ new Vue({
 		},
 		// 匹配单元格样式
 		cellStyle(data) {
+			// 操作列没有property
 			if(data.column.property) {
 				const key = data.column.property.split('.')[0]
 				if(data.row[key].canSelected && data.row[key].selectStatus) {
 					return 'color: black; background-color: #e8c387; font-size: 17px;'
+				} else if (!data.row[key].canSelected) {
+					return 'background-color: #e4e7ed;'
 				}
 			}
 			return ''
 		},
 		// 抵扣一行数据
-		submit(row) {
+		handleDeduction(row) {
 
 			// console.log(row)
-			// console.log(this.jsonArrData)
 			// console.log(this.priorityArrData)
 
 			this.priorityArrData = this.priorityArrData.map(item => {
@@ -318,151 +322,256 @@ new Vue({
 				return item
 			})
 		},
+		// 确认提交
+		submitResult() {
 
+			// 建立字典
+			const dicMap = new Map()
+			this.priorityArrData.forEach(row => {
+				dicMap.set(
+					row.id.data,
+					Object.keys(row)
+						.filter(key => row[key].canSelected)
+						.map(key => row[key].data)
+				)
+			})
 
-		// 处理一行数据
-		handleData(rowData) {
-			// 是否跳过
-			if(isEmpty(rowData)) {
-				console.log("略过一行空数据")
-				return
-			}
-			console.log("原始数据", rowData)
+			// 开始抵扣
+			this.jsonArrData = this.jsonArrData.map(row => {
 
-			// 预处理
-			rowData = this.handleBefore(rowData)
-			console.log("预处理后的数据", rowData)
+				const targetList = []
 
-			// 转换格式
-			const jsonRow = {
-				source: {
-					name: rowData[0],
-					needTotal: rowData[1],
-					needRange: rowData.slice(2, 8),
-					received: rowData[8]
-				},
-				result: {
-					needTotal: 0,
-					needRange: [0, 0, 0, 0, 0, 0]
+				// 转负数（虽然小马说不可能是负数，但还是判断一下吧）
+				targetList.push(row.source.received > 0 ? row.source.received * -1 : row.source.received)
+
+				if(dicMap.has(row.status.id)) {
+					targetList.push(...dicMap.get(row.status.id))
+				} else {
+					targetList.push(...row.source.needRange)
 				}
-			}
 
-			// 处理优先级
-			let key = true;
-			while(key) {
-				// 每次发生替换，都要从头再来一次
-				key = this.handlePriority(jsonRow)
-			}
+				// 抵扣
+				console.log(targetList)
+				const _list = this.deduction(targetList);
+				console.log(_list)
+
+				// 放入结果集
+				row.result.needTotal = _list[0]
+				row.result.needRange = _list.slice(1, 7)
+
+				return row
+			})
+
+			console.log(this.jsonArrData)
+			// 转换为excel数组
+			const exportData = this.jsonArrData.map(item => {
+				return {
+					"客户名称": item.source.name,
+					"应收账款": item.source.needTotal,
+					"一年以内": item.source.needRange[0],
+					"1-2年": item.source.needRange[1],
+					"2-3年": item.source.needRange[2],
+					"3-4年": item.source.needRange[3],
+					"4-5年": item.source.needRange[4],
+					"5年以上": item.source.needRange[5],
+					"对抵金额": item.source.received,
+					"对抵后余额": item.result.needTotal,
+					"<1年": item.result.needRange[0],
+					"1~2年": item.result.needRange[1],
+					"2~3年": item.result.needRange[2],
+					"3~4年": item.result.needRange[3],
+					"4~5年": item.result.needRange[4],
+					">5年": item.result.needRange[5]
+				}
+			})
+
+
+			// 导出
+			this.downloadExcel("账龄划分.xlsx", exportData)
 
 		},
-		// 处理优先级
-		handlePriority(jsonRow) {
+		// 导出excel
+		downloadExcel(fileName, dataList) {
 
-			console.log('进行一次优先级判断')
+			const defaultCellStyle = {
+				font: { name: "Verdana", sz: 11, color: "FF00FF88" },
+				fill: { fgColor: { rgb: "FFFFAA00" } }
+			};
+			const wopts = {
+				bookType: "xlsx",
+				bookSST: false,
+				type: "binary",
+				defaultCellStyle: defaultCellStyle,
+				showGridLines: false
+			};
+			const wb = { SheetNames: ["Sheet1"], Sheets: {}, Props: {} };
+			wb.Sheets["Sheet1"] = XLSX.utils.json_to_sheet(dataList);
 
-			// 到负数就停（第一个不处理，所以是4开始）
-			for(let i = jsonRow.source.needRange.length-2 ; i >= 0 ; i--) {
-				if(jsonRow.source.needRange[i] < 0) {
-					console.log(jsonRow.source.needRange)
-					const res = this.handlePriority_Per(jsonRow.source.needRange[i], jsonRow.source.needRange.slice(i+1, jsonRow.source.needRange.length))
-					jsonRow.source.needRange[i] = res.num
-					for (let j = 0; j <res.list.length; j++) {
-						jsonRow.source.needRange.splice(i+1+j, 1, res.list[j])
-					}
-					console.log(jsonRow.source.needRange)
-					if(res.hasReplace) {
-						return true;// 发生了替换
-					}
-				}
-			}
-			return false;// 没发生替换
+			//创建二进制对象写入转换好的字节流
+			let tmpDown = new Blob([this.s2ab(XLSX.write(wb, wopts))], {
+				type: "application/octet-stream"
+			});
+			// 保存文件
+			saveAs(tmpDown, fileName);
 		},
-		// 处理优先级 - 某一行的某一次替换
-		handlePriority_Per(num, list) {
-
-			// console.log('==> 开始一次替换')
-			// console.log('==> num', num)
-			// console.log('==> list', list)
-
-			// 是否发生了优先级替换
-			let hasReplace = false;
-
-			// 备份一个，后面补回要比较
-			const compare_list = list.concat()
-
-			// 正数方便比较
-			const _num = -num
-
-			// 负数不参与优先级
-			const _list = list.filter(item => item > 0)
-			const permutation_list = permutation(_list, _list.length)
-
-			// 寻找符合条件的组合
-			let targetList = null;
-			let targetSum = 0;
-			for (let i = 0; i < permutation_list.length; i++) {
-				let sum = 0
-				permutation_list[i].forEach(item => sum += item)
-				if(_num >= (sum-3) && _num <= (sum + 3)) {
-					targetList = permutation_list[i];
-					targetSum = sum
-					break;
-				}
+		// 字符串转字符流
+		s2ab(s) {
+			if (typeof ArrayBuffer !== "undefined") {
+				let buf = new ArrayBuffer(s.length);
+				let view = new Uint8Array(buf);
+				for (let i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xff;
+				return buf;
+			} else {
+				let buf = new Array(s.length);
+				for (let j = 0; j != s.length; ++j) buf[j] = s.charCodeAt(j) & 0xff;
+				return buf;
 			}
-
-			// 是否有符合条件的
-			if(!isEmpty(targetList)) {
-
-				// 发生替换
-				hasReplace = true;
-
-				// 记录被替换的位置
-				const indexList = []
-
-				// 替换数据
-				targetList.forEach(item => {
-					const index = list.indexOf(item);
-					indexList.push(index)
-					list.splice(index, 1, 0);
-				})
-
-				// 多退少补
-				if(_num === targetSum) {
-					num = 0
-				} else if (_num > targetSum) {
-					num = targetSum - _num
-				} else if (_num < targetSum) {
-					num = 0
-					// 还剩多少没还的钱
-					let otherNum = targetSum - _num
-					// 排序因为优先抵扣远的帐，所以补回优先补近的帐
-					indexList.sort(function(a,b){
-						return a-b;
-					})
-					// 从索引开始，逐个补回
-					for (let i = 0; i < indexList.length; i++) {
-						const _temp = compare_list.slice(indexList[i], indexList[i]+1)[0];
-						if(_temp >= otherNum) {
-							list.splice(indexList[i], 1, otherNum)
-							break
-						} else {
-							list.splice(indexList[i], 1, _temp)
-							otherNum = otherNum - _temp
-						}
-					}
-				}
-			}
-
-			// console.log('==> 结束一次替换', {num: num, list: list})
-
-			// 返回结果
-			return {
-				hasReplace: hasReplace,
-				num: num,
-				list: list
-			}
-
 		}
+
+
+		// // 处理一行数据
+		// handleData(rowData) {
+		// 	// 是否跳过
+		// 	if(isEmpty(rowData)) {
+		// 		console.log("略过一行空数据")
+		// 		return
+		// 	}
+		// 	console.log("原始数据", rowData)
+		//
+		// 	// 预处理
+		// 	rowData = this.handleBefore(rowData)
+		// 	console.log("预处理后的数据", rowData)
+		//
+		// 	// 转换格式
+		// 	const jsonRow = {
+		// 		source: {
+		// 			name: rowData[0],
+		// 			needTotal: rowData[1],
+		// 			needRange: rowData.slice(2, 8),
+		// 			received: rowData[8]
+		// 		},
+		// 		result: {
+		// 			needTotal: 0,
+		// 			needRange: [0, 0, 0, 0, 0, 0]
+		// 		}
+		// 	}
+		//
+		// 	// 处理优先级
+		// 	let key = true;
+		// 	while(key) {
+		// 		// 每次发生替换，都要从头再来一次
+		// 		key = this.handlePriority(jsonRow)
+		// 	}
+		//
+		// },
+		// // 处理优先级
+		// handlePriority(jsonRow) {
+		//
+		// 	console.log('进行一次优先级判断')
+		//
+		// 	// 到负数就停（第一个不处理，所以是4开始）
+		// 	for(let i = jsonRow.source.needRange.length-2 ; i >= 0 ; i--) {
+		// 		if(jsonRow.source.needRange[i] < 0) {
+		// 			console.log(jsonRow.source.needRange)
+		// 			const res = this.handlePriority_Per(jsonRow.source.needRange[i], jsonRow.source.needRange.slice(i+1, jsonRow.source.needRange.length))
+		// 			jsonRow.source.needRange[i] = res.num
+		// 			for (let j = 0; j <res.list.length; j++) {
+		// 				jsonRow.source.needRange.splice(i+1+j, 1, res.list[j])
+		// 			}
+		// 			console.log(jsonRow.source.needRange)
+		// 			if(res.hasReplace) {
+		// 				return true;// 发生了替换
+		// 			}
+		// 		}
+		// 	}
+		// 	return false;// 没发生替换
+		// },
+		// // 处理优先级 - 某一行的某一次替换
+		// handlePriority_Per(num, list) {
+		//
+		// 	// console.log('==> 开始一次替换')
+		// 	// console.log('==> num', num)
+		// 	// console.log('==> list', list)
+		//
+		// 	// 是否发生了优先级替换
+		// 	let hasReplace = false;
+		//
+		// 	// 备份一个，后面补回要比较
+		// 	const compare_list = list.concat()
+		//
+		// 	// 正数方便比较
+		// 	const _num = -num
+		//
+		// 	// 负数不参与优先级
+		// 	const _list = list.filter(item => item > 0)
+		// 	const permutation_list = permutation(_list, _list.length)
+		//
+		// 	// 寻找符合条件的组合
+		// 	let targetList = null;
+		// 	let targetSum = 0;
+		// 	for (let i = 0; i < permutation_list.length; i++) {
+		// 		let sum = 0
+		// 		permutation_list[i].forEach(item => sum += item)
+		// 		if(_num >= (sum-3) && _num <= (sum + 3)) {
+		// 			targetList = permutation_list[i];
+		// 			targetSum = sum
+		// 			break;
+		// 		}
+		// 	}
+		//
+		// 	// 是否有符合条件的
+		// 	if(!isEmpty(targetList)) {
+		//
+		// 		// 发生替换
+		// 		hasReplace = true;
+		//
+		// 		// 记录被替换的位置
+		// 		const indexList = []
+		//
+		// 		// 替换数据
+		// 		targetList.forEach(item => {
+		// 			const index = list.indexOf(item);
+		// 			indexList.push(index)
+		// 			list.splice(index, 1, 0);
+		// 		})
+		//
+		// 		// 多退少补
+		// 		if(_num === targetSum) {
+		// 			num = 0
+		// 		} else if (_num > targetSum) {
+		// 			num = targetSum - _num
+		// 		} else if (_num < targetSum) {
+		// 			num = 0
+		// 			// 还剩多少没还的钱
+		// 			let otherNum = targetSum - _num
+		// 			// 排序因为优先抵扣远的帐，所以补回优先补近的帐
+		// 			indexList.sort(function(a,b){
+		// 				return a-b;
+		// 			})
+		// 			// 从索引开始，逐个补回
+		// 			for (let i = 0; i < indexList.length; i++) {
+		// 				const _temp = compare_list.slice(indexList[i], indexList[i]+1)[0];
+		// 				if(_temp >= otherNum) {
+		// 					list.splice(indexList[i], 1, otherNum)
+		// 					break
+		// 				} else {
+		// 					list.splice(indexList[i], 1, _temp)
+		// 					otherNum = otherNum - _temp
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		//
+		// 	// console.log('==> 结束一次替换', {num: num, list: list})
+		//
+		// 	// 返回结果
+		// 	return {
+		// 		hasReplace: hasReplace,
+		// 		num: num,
+		// 		list: list
+		// 	}
+		//
+		// }
 	}
 });
 

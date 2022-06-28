@@ -17,6 +17,10 @@ new Vue({
 		}
 	},
 	created() {
+		// console.log("+", add(0.1, 0.2))
+		// console.log("-", subtract(2, 3))
+		// console.log("*", multiply(2, 3))
+		// console.log('/', divide(2, 3))
 	},
 	methods: {
 		// 读取文件
@@ -64,7 +68,7 @@ new Vue({
 			// 这里不能用forEach，会跳过空位置
 			let _list = []
 			for (let i = 0; i < rowData.length; i++) {
-				if(isEmpty(rowData[i]) || rowData[i] === '-') {
+				if(i !== 0 && (isEmpty(rowData[i]) || !isNumber(rowData[i]))) {
 					_list.push(0)
 				} else {
 					_list.push(rowData[i])
@@ -108,18 +112,18 @@ new Vue({
 				const s_zList = new Set()
 				permutation(zList, zList.length).forEach(item => {
 					let sum = 0
-					item.forEach(p => sum += p)
+					item.forEach(p => sum = add(sum, p))
 					s_zList.add(sum)
 				})
 				const s_fList = new Set()
 				permutation(fList, fList.length).forEach(item => {
 					let sum = 0
-					item.forEach(p => sum += Math.abs(p))
+					item.forEach(p => sum = add(sum, Math.abs(p)))
 					s_fList.add(sum)
 				})
 				// 比较是否存在相等
 				return (Array.from(s_fList).filter(f => {
-					return (Array.from(s_zList).filter(z => Math.abs(z - f) <= this.errorRange).length > 0)
+					return (Array.from(s_zList).filter(z => Math.abs(subtract(z, f)) <= this.errorRange).length > 0)
 				}).length > 0)
 			}
 			// 只有同时存在正负数才有优先级的可能
@@ -145,6 +149,7 @@ new Vue({
 				n4: {data: needRange[4], canSelected: true, selectStatus: false},
 				n5: {data: needRange[5], canSelected: true, selectStatus: false},
 				received: {data: row.source.received, canSelected: false},
+				count: {data: 0, canSelected: false}
 			}
 		},
 		// 单元格点击事件
@@ -155,6 +160,15 @@ new Vue({
 						const key = column.property.split('.')[0]
 						if (item[key].canSelected) {
 							item[key].selectStatus = !item[key].selectStatus
+
+							// 计算值
+							item["count"].data = 0
+							Object.keys(item).forEach(_key => {
+								if(item[_key].canSelected && item[_key].selectStatus) {
+									item["count"].data = add(item["count"].data, item[_key].data)
+								}
+							})
+
 							return item
 						}
 					}
@@ -167,7 +181,17 @@ new Vue({
 			// 操作列没有property
 			if(data.column.property) {
 				const key = data.column.property.split('.')[0]
-				if(data.row[key].canSelected && data.row[key].selectStatus) {
+				if (key === "count") {
+					console.log(data.row[key].data)
+					console.log(this.errorRange)
+					if(data.row[key].data < -Math.abs(this.errorRange)) {
+						return 'background-color: #aba9d8;'
+					}
+					if(data.row[key].data > Math.abs(this.errorRange)) {
+						return 'background-color: #faa5a5;'
+					}
+					return 'background-color: #76bb62;'
+				} else if(data.row[key].canSelected && data.row[key].selectStatus) {
 					return 'color: black; background-color: #e8c387; font-size: 17px;'
 				} else if (!data.row[key].canSelected) {
 					return 'background-color: #e4e7ed;'
@@ -260,7 +284,7 @@ new Vue({
 				// 先全部替换成0
 				let actualNum = 0;
 				list = list.map(_tmp => {
-					actualNum = actualNum += _tmp
+					actualNum = add(actualNum, _tmp)
 					return 0
 				})
 
@@ -268,11 +292,11 @@ new Vue({
 				if(_num === actualNum) {
 					num = 0
 				} else if (_num > actualNum) {
-					num = actualNum - _num
+					num = subtract(actualNum, _num)
 				} else if (_num < actualNum) {
 					num = 0
 					// 还剩多少没还的钱
-					let leftNum = actualNum - _num
+					let leftNum = subtract(actualNum, _num)
 					// 从索引开始，逐个补回
 					for (let i = 0 ; i < list.length ; i++) {
 						const _back = back_list[i];
@@ -281,7 +305,7 @@ new Vue({
 							break
 						} else {
 							list[i] = _back
-							leftNum = leftNum - _back
+							leftNum = subtract(leftNum, _back)
 						}
 					}
 				}
@@ -351,18 +375,16 @@ new Vue({
 				}
 
 				// 抵扣
-				console.log(targetList)
 				const _list = this.deduction(targetList);
-				console.log(_list)
 
 				// 放入结果集
-				row.result.needTotal = _list[0]
-				row.result.needRange = _list.slice(1, 7)
+				row.result.needRange = _list.slice(1, 7).map(item => item < 0 ? 0 : item)
+				const _sum = arrSum(row.result.needRange)
+				row.result.needTotal = _sum < 0 ? 0 : _sum
 
 				return row
 			})
 
-			console.log(this.jsonArrData)
 			// 转换为excel数组
 			const exportData = this.jsonArrData.map(item => {
 				return {
@@ -376,12 +398,12 @@ new Vue({
 					"5年以上": item.source.needRange[5],
 					"对抵金额": item.source.received,
 					"对抵后余额": item.result.needTotal,
-					"<1年": item.result.needRange[0],
-					"1~2年": item.result.needRange[1],
-					"2~3年": item.result.needRange[2],
-					"3~4年": item.result.needRange[3],
-					"4~5年": item.result.needRange[4],
-					">5年": item.result.needRange[5]
+					"一年以内（扣预收）": item.result.needRange[0],
+					"1-2年（扣预收）": item.result.needRange[1],
+					"2-3年（扣预收）": item.result.needRange[2],
+					"3-4年（扣预收）": item.result.needRange[3],
+					"4-5年（扣预收）": item.result.needRange[4],
+					"5年以上（扣预收）": item.result.needRange[5]
 				}
 			})
 

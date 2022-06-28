@@ -90,3 +90,51 @@ function arrSum(list) {
     return sum
 }
 
+/**
+ * 是否是数值
+ * @param value
+ * @returns {boolean}
+ */
+function isNumber(value) {
+    return (typeof value === 'number' && !isNaN(value));
+}
+
+/**
+ * 加
+ */
+function add(num1, num2){
+    return round(math.format(math.add(math.bignumber(num1), math.bignumber(num2))), 2);
+}
+
+/**
+ * 乘
+ */
+function multiply(num1, num2){
+    return math.format(math.multiply(math.bignumber(num1), math.bignumber(num2)));
+}
+
+/**
+ * 减
+ */
+function subtract(num1, num2){
+    return round(math.format(math.subtract(math.bignumber(num1), math.bignumber(num2))), 2);
+}
+
+/**
+ * 除
+ */
+function divide(num1, num2){
+    return round(math.format(math.divide(math.bignumber(num1),math.bignumber(num2))), 2);
+}
+
+/**
+ * 保留几位小数
+ */
+function round(num, n){
+    if(n <= 0) {
+        return Math.round(num);
+    }
+    const _n = n * 10
+    return Math.round(multiply(num, _n)) / _n;
+}
+

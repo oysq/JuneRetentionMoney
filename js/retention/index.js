@@ -67,11 +67,12 @@ new Vue({
 		handleBefore(rowData) {
 			// 这里不能用forEach，会跳过空位置
 			let _list = []
-			for (let i = 0; i < rowData.length; i++) {
-				if(i !== 0 && (isEmpty(rowData[i]) || !isNumber(rowData[i]))) {
+			// 第一位是名称，不处理
+			for (let i = 1; i < rowData.length; i++) {
+				if(isEmpty(rowData[i]) || !isNumber(rowData[i])) {
 					_list.push(0)
 				} else {
-					_list.push(rowData[i])
+					_list.push(round(rowData[i], 2))
 				}
 			}
 

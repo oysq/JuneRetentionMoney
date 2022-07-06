@@ -17,10 +17,10 @@ new Vue({
 		}
 	},
 	created() {
-		// console.log("+", add(0.1, 0.2))
-		// console.log("-", subtract(2, 3))
-		// console.log("*", multiply(2, 3))
-		// console.log('/', divide(2, 3))
+		// console.log("+", round(add(0.1, 0.2), 4))
+		// console.log("-", round(subtract(2, 3), 4))
+		// console.log("*", round(multiply(2, 3), 4))
+		// console.log('/', round(divide(2, 3), 4))
 	},
 	methods: {
 		// 读取文件
@@ -44,7 +44,6 @@ new Vue({
 		},
 		// 处理表格
 		handleTable() {
-			// console.log(this.tableData)
 			if(isEmpty(this.tableData)) {
 				alert("表格内容为空")
 				return
@@ -59,6 +58,8 @@ new Vue({
 				}
 			})
 
+			console.log(this.jsonArrData)
+
 			// 渲染到页面
 			this.priorityArrData = this.getPriorityFormatData()
 
@@ -67,12 +68,16 @@ new Vue({
 		handleBefore(rowData) {
 			// 这里不能用forEach，会跳过空位置
 			let _list = []
-			// 第一位是名称，不处理
-			for (let i = 1; i < rowData.length; i++) {
-				if(isEmpty(rowData[i]) || !isNumber(rowData[i])) {
-					_list.push(0)
+			for (let i = 0; i < rowData.length; i++) {
+				// 第一位是名称，不处理
+				if(i === 0) {
+					_list.push(rowData[i])
 				} else {
-					_list.push(round(rowData[i], 2))
+					if(isEmpty(rowData[i]) || !isNumber(rowData[i])) {
+						_list.push(0)
+					} else {
+						_list.push(round(rowData[i], 4))
+					}
 				}
 			}
 
@@ -113,13 +118,13 @@ new Vue({
 				const s_zList = new Set()
 				permutation(zList, zList.length).forEach(item => {
 					let sum = 0
-					item.forEach(p => sum = add(sum, p))
+					item.forEach(p => sum = round(add(sum, p)), 4)
 					s_zList.add(sum)
 				})
 				const s_fList = new Set()
 				permutation(fList, fList.length).forEach(item => {
 					let sum = 0
-					item.forEach(p => sum = add(sum, Math.abs(p)))
+					item.forEach(p => sum = round(add(sum, Math.abs(p))), 4)
 					s_fList.add(sum)
 				})
 				// 比较是否存在相等
@@ -166,7 +171,7 @@ new Vue({
 							item["count"].data = 0
 							Object.keys(item).forEach(_key => {
 								if(item[_key].canSelected && item[_key].selectStatus) {
-									item["count"].data = add(item["count"].data, item[_key].data)
+									item["count"].data = round(add(item["count"].data, item[_key].data), 2)
 								}
 							})
 
@@ -183,8 +188,8 @@ new Vue({
 			if(data.column.property) {
 				const key = data.column.property.split('.')[0]
 				if (key === "count") {
-					console.log(data.row[key].data)
-					console.log(this.errorRange)
+					// console.log(data.row[key].data)
+					// console.log(this.errorRange)
 					if(data.row[key].data < -Math.abs(this.errorRange)) {
 						return 'background-color: #aba9d8;'
 					}
@@ -218,11 +223,11 @@ new Vue({
 						}
 					})
 					// 抵扣一行
-					const res = this.deduction(list)
+					const res = this.deduction_v2(list)
 
 					// 替换原数据
 					for (let i = 0; i < indexList.length; i++) {
-						item[indexList[i]].data = res[i]
+						item[indexList[i]].data = round(res[i], 2)
 					}
 				}
 				return item
@@ -231,12 +236,15 @@ new Vue({
 
 		},
 		// 抵扣
+		// 方法已经废弃!!!
 		deduction(list) {
 			// 是否跳过
 			if(isEmpty(list)) {
 				// console.log("略过一行空数据")
 				return list
 			}
+
+			console.log(list.concat())
 
 			// 到负数就停（第一个不处理，所以是减2）
 			for(let i = (list.length-2) ; i >= 0 ; i--) {
@@ -260,18 +268,19 @@ new Vue({
 					for (let j = 0; j < indexList.length; j++) {
 						list[indexList[j]] = res.list[j]
 					}
-					// console.log('替换后：', list)
+					// console.log('替换后：', list.concat())
 				}
 			}
 			return list;
 
 		},
 		// 抵扣 - 某一行的某一次替换
+		// 方法已经废弃！！
 		deduction_per(num, list) {
 
-			// console.log('==> 开始一次替换')
-			// console.log('num', num)
-			// console.log('list', list)
+			console.log('==> 开始一次替换')
+			console.log('num', num)
+			console.log('list', list.concat())
 
 			// 备份一个，后面补回要比较
 			const back_list = list.concat()
@@ -285,7 +294,7 @@ new Vue({
 				// 先全部替换成0
 				let actualNum = 0;
 				list = list.map(_tmp => {
-					actualNum = add(actualNum, _tmp)
+					actualNum = round(add(actualNum, _tmp), 4)
 					return 0
 				})
 
@@ -293,11 +302,11 @@ new Vue({
 				if(_num === actualNum) {
 					num = 0
 				} else if (_num > actualNum) {
-					num = subtract(actualNum, _num)
+					num = round(subtract(actualNum, _num), 4)
 				} else if (_num < actualNum) {
 					num = 0
 					// 还剩多少没还的钱
-					let leftNum = subtract(actualNum, _num)
+					let leftNum = round(subtract(actualNum, _num), 4)
 					// 从索引开始，逐个补回
 					for (let i = 0 ; i < list.length ; i++) {
 						const _back = back_list[i];
@@ -306,13 +315,13 @@ new Vue({
 							break
 						} else {
 							list[i] = _back
-							leftNum = subtract(leftNum, _back)
+							leftNum = round(subtract(leftNum, _back), 4)
 						}
 					}
 				}
 			}
 
-			// console.log('==> 结束一次替换', {num: num, list: list})
+			 console.log('==> 结束一次替换', {num: num, list: list})
 
 			// 返回结果
 			return {
@@ -320,6 +329,77 @@ new Vue({
 				list: list
 			}
 
+		},
+		deduction_v2(list) {
+
+			// 略过一行空数据
+			if(isEmpty(list)) {
+				return list
+			}
+
+			console.log(list.concat())
+
+			// 备份一个，后面补回要比较
+			const back_list = list.concat()
+
+			// 算出所有正负数的和
+			const zIndexList = []
+			const fIndexList = []
+			let zNum = 0;
+			let fNum = 0;
+			for (let i = 0; i < list.length; i++) {
+				// 等于 0 不参与，不然会补错位置
+				if(list[i] > 0) {
+					zNum = round(add(zNum, list[i]), 4)
+					zIndexList.push(i)
+				}
+				if(list[i] < 0) {
+					fNum = round(add(fNum, Math.abs(list[i])), 4)
+					fIndexList.push(i)
+				}
+			}
+
+			console.log(zIndexList)
+
+			// 全部换成0
+			list = list.map(_tmp => {return 0})
+
+			// 多退少补
+			if(fNum === zNum) {
+				// do nothing
+			} else if(fNum > zNum) {
+				// 多还了一部分钱
+				let leftNum = round(subtract(zNum, fNum), 4)
+				// 从索引开始，逐个补回
+				for (let i = 0 ; i < fIndexList.length ; i++) {
+					const _back = back_list[fIndexList[i]];
+					if(Math.abs(_back) >= Math.abs(leftNum)) {
+						list[fIndexList[i]] = leftNum
+						break
+					} else {
+						list[fIndexList[i]] = _back
+						leftNum = round(subtract(leftNum, _back), 4)
+					}
+				}
+			} else {
+				// 还剩多少没还的钱
+				let leftNum = round(subtract(zNum, fNum), 4)
+				// 从索引开始，逐个补回
+				for (let i = 0 ; i < zIndexList.length ; i++) {
+					const _back = back_list[zIndexList[i]];
+					if(_back >= leftNum) {
+						list[zIndexList[i]] = leftNum
+						break
+					} else {
+						list[zIndexList[i]] = _back
+						leftNum = round(subtract(leftNum, _back), 4)
+					}
+				}
+			}
+
+			console.log(list.concat())
+
+			return list;
 		},
 		// 清除点击样式
 		cleanClick(row) {
@@ -376,10 +456,11 @@ new Vue({
 				}
 
 				// 抵扣
-				const _list = this.deduction(targetList);
+				const _list = this.deduction_v2(targetList);
 
 				// 放入结果集
 				row.result.needRange = _list.slice(1, 7).map(item => item < 0 ? 0 : item)
+
 				const _sum = arrSum(row.result.needRange)
 				row.result.needTotal = _sum < 0 ? 0 : _sum
 
@@ -398,13 +479,13 @@ new Vue({
 					"4-5年": item.source.needRange[4],
 					"5年以上": item.source.needRange[5],
 					"对抵金额": item.source.received,
-					"对抵后余额": item.result.needTotal,
-					"一年以内（扣预收）": item.result.needRange[0],
-					"1-2年（扣预收）": item.result.needRange[1],
-					"2-3年（扣预收）": item.result.needRange[2],
-					"3-4年（扣预收）": item.result.needRange[3],
-					"4-5年（扣预收）": item.result.needRange[4],
-					"5年以上（扣预收）": item.result.needRange[5]
+					"对抵后余额": round(item.result.needTotal, 2),
+					"一年以内（扣预收）": round(item.result.needRange[0], 2),
+					"1-2年（扣预收）": round(item.result.needRange[1], 2),
+					"2-3年（扣预收）": round(item.result.needRange[2], 2),
+					"3-4年（扣预收）": round(item.result.needRange[3], 2),
+					"4-5年（扣预收）": round(item.result.needRange[4], 2),
+					"5年以上（扣预收）": round(item.result.needRange[5], 2)
 				}
 			})
 

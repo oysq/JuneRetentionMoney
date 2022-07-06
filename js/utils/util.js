@@ -85,7 +85,7 @@ function arrSum(list) {
     }
     let sum = 0
     list.forEach(item => {
-        sum += item
+        sum = round(add(sum, item), 4)
     })
     return sum
 }
@@ -103,38 +103,41 @@ function isNumber(value) {
  * 加
  */
 function add(num1, num2){
-    return round(math.format(math.add(math.bignumber(num1), math.bignumber(num2))), 2);
-}
-
-/**
- * 乘
- */
-function multiply(num1, num2){
-    return math.format(math.multiply(math.bignumber(num1), math.bignumber(num2)));
+    return math.format(math.chain(math.bignumber(num1)).add(math.bignumber(num2)).done());
 }
 
 /**
  * 减
  */
 function subtract(num1, num2){
-    return round(math.format(math.subtract(math.bignumber(num1), math.bignumber(num2))), 2);
+    return math.format(math.chain(math.bignumber(num1)).subtract(math.bignumber(num2)).done());
+}
+
+/**
+ * 乘
+ */
+function multiply(num1, num2){
+    return math.format(math.chain(math.bignumber(num1)).multiply(math.bignumber(num2)).done());
 }
 
 /**
  * 除
  */
 function divide(num1, num2){
-    return round(math.format(math.divide(math.bignumber(num1),math.bignumber(num2))), 2);
+    return math.format(math.chain(math.bignumber(num1)).divide(math.bignumber(num2)).done());
 }
 
 /**
  * 保留几位小数
  */
-function round(num, n){
-    if(n <= 0) {
-        return Math.round(num);
-    }
-    const _n = n * 10
-    return Math.round(multiply(num, _n)) / _n;
+function round(num, n) {
+    return parseFloat(parseFloat(num).toFixed(n))
 }
+// function round(num, n){
+//     if(n <= 0) {
+//         return Math.round(num);
+//     }
+//     const _n = n * 10
+//     return Math.round(multiply(num, _n)) / _n;
+// }
 
